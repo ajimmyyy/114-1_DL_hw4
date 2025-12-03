@@ -6,7 +6,7 @@ from tetris_client import TetrisClient
 class TetrisEnv(gym.Env):
     metadata = {"render_modes": ["rgb_array"]}
 
-    def __init__(self, host="127.0.0.1", port=8000):
+    def __init__(self, host="127.0.0.1", port=10612):
         super().__init__()
 
         self.client = TetrisClient(host, port)
@@ -15,12 +15,6 @@ class TetrisEnv(gym.Env):
             low=0, high=255, shape=(200, 100, 3), dtype=np.uint8
         )
 
-        # Actions:
-        # 0: left
-        # 1: right
-        # 2: rotate CCW
-        # 3: rotate CW
-        # 4: drop
         self.action_space = spaces.Discrete(5)
 
         self.prev_cleared = 0

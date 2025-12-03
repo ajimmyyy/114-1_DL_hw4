@@ -5,7 +5,7 @@ from PIL import Image
 import numpy as np
 
 class TetrisClient:
-    def __init__(self, host="127.0.0.1", port=8000):
+    def __init__(self, host="127.0.0.1", port=10612):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
 
@@ -24,12 +24,17 @@ class TetrisClient:
         return buf
 
     def get_state(self):
-        is_over = self.recv_exact(1)
-        is_over = bool(is_over[0])
+        raw_over = self.recv_exact(1)
+        is_over = bool(raw_over[0])
 
-        removed_lines = struct.unpack(">I", self.recv_exact(4))[0]
+        raw_lines = self.recv_exact(4)
+        removed_lines = struct.unpack(">I", raw_lines)[0]
 
-        png_size = struct.unpack(">I", self.recv_exact(4))[0]
+        raw_size = self.recv_exact(4)
+        png_size = struct.unpack(">I", raw_size)[0]
+
+        if png_size == 0:
+            return is_over, removed_lines, np.zeros((200, 100, 3), dtype=np.uint8)
 
         png_bytes = self.recv_exact(png_size)
 
