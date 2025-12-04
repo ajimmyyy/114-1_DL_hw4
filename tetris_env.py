@@ -1,6 +1,7 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+from tqdm import tqdm
 from tetris_client import TetrisClient
 
 class TetrisEnv(gym.Env):
@@ -16,13 +17,19 @@ class TetrisEnv(gym.Env):
         )
 
         self.action_space = spaces.Discrete(5)
-
-        self.prev_cleared = 0
+        self.steps = 0
+    
+    def _process_obs(self, obs):
+        gray = np.dot(obs[...,:3], [0.2989, 0.5870, 0.1140])
+        gray = gray.astype(np.float32) / 255.0
+        gray = np.expand_dims(gray, axis=-1)
+        return gray
 
     def reset(self, seed=None, options=None):
         self.client.start()
         is_over, cleared, obs = self.client.get_state()
         self.prev_cleared = cleared
+        self.steps = 0
         return obs, {}
 
     def step(self, action):
@@ -39,18 +46,24 @@ class TetrisEnv(gym.Env):
 
         is_over, cleared, obs = self.client.get_state()
 
-        reward = cleared - self.prev_cleared
-        self.prev_cleared = cleared
+        self.steps += 1
+
+        reward = cleared + self.steps / 1000000.0
 
         terminated = is_over
         truncated = False
 
-        info = {"lines_cleared": cleared}
+        info = {
+            "lines_cleared": cleared,
+            "played_steps": self.steps,
+            "reward": reward,
+        }
 
         return obs, reward, terminated, truncated, info
 
     def render(self):
         _, _, obs = self.client.get_state()
+        obs = self._process_obs(obs)
         return obs
 
     def close(self):
