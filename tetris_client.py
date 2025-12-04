@@ -1,8 +1,8 @@
+import cv2
 import socket
-import struct
-from io import BytesIO
-from PIL import Image
 import numpy as np
+
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 class TetrisClient:
     def __init__(self, host="127.0.0.1", port=10612):
@@ -14,7 +14,6 @@ class TetrisClient:
         self.sock.sendall(cmd.encode())
 
     def recv_exact(self, size):
-        """Receive exact bytes"""
         buf = b""
         while len(buf) < size:
             chunk = self.sock.recv(size - len(buf))
@@ -23,25 +22,46 @@ class TetrisClient:
             buf += chunk
         return buf
 
+    def recv_png(self, img_size):
+        if img_size < 8:
+            return self._resync_png()
+
+        first8 = self.recv_exact(8)
+        if first8 != PNG_MAGIC:
+            return self._resync_png(prefetch=first8)
+
+        body = self.recv_exact(img_size - 8)
+        return first8 + body
+
+    def _resync_png(self, prefetch=b""):
+        data = prefetch
+        while PNG_MAGIC not in data:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise ConnectionError("Lost connection while resync PNG.")
+            data += chunk
+
+            if len(data) > 200000:
+                data = data[-100000:]
+
+        idx = data.index(PNG_MAGIC)
+
+        return data[idx:]
+
     def get_state(self):
-        raw_over = self.recv_exact(1)
-        is_over = bool(raw_over[0])
+        is_game_over = (self.recv_exact(1) == b'\x01')
+        removed_lines = int.from_bytes(self.recv_exact(4), 'big')
+        img_size = int.from_bytes(self.recv_exact(4), 'big')
+        
+        img_png = self.recv_png(img_size)
 
-        raw_lines = self.recv_exact(4)
-        removed_lines = struct.unpack(">I", raw_lines)[0]
+        if img_size == 0:
+            return is_game_over, removed_lines, np.zeros((200, 100, 3), dtype=np.uint8)
+        
+        nparr = np.frombuffer(img_png, np.uint8)
+        np_image = cv2.imdecode(nparr, -1)
 
-        raw_size = self.recv_exact(4)
-        png_size = struct.unpack(">I", raw_size)[0]
-
-        if png_size == 0:
-            return is_over, removed_lines, np.zeros((200, 100, 3), dtype=np.uint8)
-
-        png_bytes = self.recv_exact(png_size)
-
-        img = Image.open(BytesIO(png_bytes))
-        img = np.array(img)
-
-        return is_over, removed_lines, img
+        return is_game_over, removed_lines, np_image
 
     def start(self):
         self.send_cmd("start")
@@ -57,3 +77,18 @@ class TetrisClient:
 
     def close(self):
         self.sock.close()
+
+if __name__ == "__main__":
+    client = TetrisClient()
+    client.start()
+    is_game_over, removed_lines, np_image = client.get_state()
+
+    while not is_game_over:
+        client.drop()
+        is_game_over, removed_lines, np_image = client.get_state()
+    
+    from PIL import Image
+    img = Image.fromarray(np_image, 'RGB')
+    img.show()
+
+    print("Done")
