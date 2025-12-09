@@ -3,7 +3,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 from tqdm import tqdm
-from tetris_client import TetrisClient
+from .tetris_client import TetrisClient
 
 class TetrisEnv(gym.Env):
     metadata = {"render_modes": ["rgb_array"]}

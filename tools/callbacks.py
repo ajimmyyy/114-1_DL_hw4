@@ -46,7 +46,6 @@ class ViewGameCallback(BaseCallback):
     def _on_training_end(self) -> None:
         cv2.destroyAllWindows()
 
-
 class DebugCallback(BaseCallback):
     def __init__(self, verbose=0):
         super().__init__(verbose)
