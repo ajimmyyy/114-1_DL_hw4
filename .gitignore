@@ -3,3 +3,4 @@ __pycache__
 tetris_tensorboard_logs
 *.zip
 *.log
+*.gz

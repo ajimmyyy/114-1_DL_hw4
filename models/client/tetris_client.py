@@ -51,6 +51,8 @@ class TetrisClient:
     def get_state(self):
         is_game_over = (self.recv_exact(1) == b'\x01')
         removed_lines = int.from_bytes(self.recv_exact(4), 'big')
+        holes = int.from_bytes(self.recv_exact(4), 'big')
+        hight = int.from_bytes(self.recv_exact(4), 'big')
         img_size = int.from_bytes(self.recv_exact(4), 'big')
         
         img_png = self.recv_png(img_size)
@@ -61,7 +63,7 @@ class TetrisClient:
         nparr = np.frombuffer(img_png, np.uint8)
         np_image = cv2.imdecode(nparr, -1)
 
-        return is_game_over, removed_lines, np_image
+        return is_game_over, removed_lines, holes, hight, np_image
 
     def start(self):
         self.send_cmd("start")
@@ -79,16 +81,24 @@ class TetrisClient:
         self.sock.close()
 
 if __name__ == "__main__":
+    from PIL import Image
     client = TetrisClient()
     client.start()
-    is_game_over, removed_lines, np_image = client.get_state()
-
-    while not is_game_over:
-        client.drop()
-        is_game_over, removed_lines, np_image = client.get_state()
-    
-    from PIL import Image
+    is_game_over, removed_lines, holes, hight, np_image = client.get_state()
     img = Image.fromarray(np_image, 'RGB')
     img.show()
+    print(holes)
+
+    client.drop()
+    is_game_over, removed_lines, holes, hight, np_image = client.get_state()
+    img = Image.fromarray(np_image, 'RGB')
+    img.show()
+    print(holes)
+
+    client.drop()
+    is_game_over, removed_lines, holes, hight, np_image = client.get_state()
+    img = Image.fromarray(np_image, 'RGB')
+    img.show()
+    print(holes)
 
     print("Done")
