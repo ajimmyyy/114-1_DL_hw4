@@ -7,11 +7,11 @@ class TetrisCNN(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
 
         self.cnn = nn.Sequential(
-            nn.Conv2d(4, 32, kernel_size=5, stride=2, padding=2),
+            nn.Conv2d(4, 32, kernel_size=5, stride=5, padding=0),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Flatten()
         )

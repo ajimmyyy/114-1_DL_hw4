@@ -3,13 +3,12 @@ import cv2
 import numpy as np
 import pickle
 import gzip
-from tetris_env import TetrisEnv
+from models.client.tetris_env import TetrisEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack, VecTransposeImage, DummyVecEnv
 
 def record_demonstration(output_file="tetris_demo_stacked.pkl.gz", episodes=5):
     env = make_vec_env(TetrisEnv, n_envs=1, vec_env_cls=DummyVecEnv)
-    env = VecTransposeImage(env)
     env = VecFrameStack(env, n_stack=4)
 
     buffer = []
@@ -36,8 +35,8 @@ def record_demonstration(output_file="tetris_demo_stacked.pkl.gz", episodes=5):
             display_img = cv2.resize(display_img, (200, 400), interpolation=cv2.INTER_NEAREST)
             cv2.imshow("Recorder", display_img)
             
-            key = cv2.waitKey(300) & 0xFF
-            action = [4]
+            key = cv2.waitKey(500) & 0xFF
+            action = [2]
             
             if key in KEY_MAPPING:
                 action = [KEY_MAPPING[key]]
@@ -53,6 +52,8 @@ def record_demonstration(output_file="tetris_demo_stacked.pkl.gz", episodes=5):
             
             if dones[0]:
                 done = True
+
+            print(info)
                 
         print(f"Episode {ep+1} Score: {score}")
 

@@ -1,0 +1,29 @@
+algo: "DDQN"
+
+env:
+  n_envs: 128
+  frame_stack: 4
+
+train:
+  total_timesteps: 1000_000_00
+  log_dir: "./tensor_logs"
+
+model:
+  policy: "CnnPolicy"
+  use_tetris_cnn: true
+  features_dim: 512
+  learning_rate: 0.00003
+  buffer_size: 400000
+  batch_size: 1024
+  learning_starts: 10000
+  target_update_interval: 1000
+  train_freq: 4
+  gradient_steps: 1
+  exploration_fraction: 0.3
+  exploration_initial_eps: 1.0
+  exploration_final_eps: 0.02
+  optimize_memory_usage: true
+  replay_buffer_kwargs:
+    handle_timeout_termination: false
+  verbose: 1
+  device: "cuda"
