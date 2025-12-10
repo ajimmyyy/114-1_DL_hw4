@@ -31,12 +31,4 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
-
-    logging.basicConfig(
-        filename="train_log.txt",
-        filemode="w",
-        level=logging.INFO,
-        format="%(message)s",
-    )
-    
     main(args)

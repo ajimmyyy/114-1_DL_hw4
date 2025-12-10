@@ -8,4 +8,5 @@ def parse_args():
     parser.add_argument("--use_eval", action="store_true")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--view_game", action="store_true")
+    parser.add_argument("--save_verbose_log", action="store_true")
     return parser.parse_args()

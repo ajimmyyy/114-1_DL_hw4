@@ -1,7 +1,10 @@
+import math
+from typing import Callable
 from stable_baselines3.common.vec_env import (
-    VecTransposeImage, VecFrameStack, VecMonitor, SubprocVecEnv
+    VecTransposeImage, VecFrameStack, VecMonitor, SubprocVecEnv, VecNormalize
 )
 from stable_baselines3.common.env_util import make_vec_env
+import re
 from .client.tetris_env import TetrisEnv
 from stable_baselines3 import DQN, PPO, A2C, SAC, TD3
 from .ddqn import DDQN
@@ -36,6 +39,25 @@ def create_model(cfg, env, log_dir="./tensorboard_logs", model_path=None):
     params["env"] = env
     params["tensorboard_log"] = log_dir
 
+    if "learning_rate" in params and isinstance(params["learning_rate"], str):
+        lr_input = params["learning_rate"]
+        match = re.match(r"(\w+)_schedule\(([\d\.e-]+)\)", lr_input)
+        
+        if match:
+            sched_type = match.group(1)
+            initial_lr = float(match.group(2))
+            
+            try:
+                params["learning_rate"] = make_learning_schedule(initial_lr, schedule_type=sched_type)
+                print(f"[ModelFactory] Using {sched_type} schedule, starting from {initial_lr}")
+            except ValueError as e:
+                raise ValueError(f"Invalid schedule type in config: {lr_input}") from e
+        else:
+            try:
+                params["learning_rate"] = float(lr_input)
+            except ValueError:
+                raise ValueError(f"Invalid learning_rate format: {lr_input}")
+
     if use_custom_cnn:
         params["policy_kwargs"] = dict(
             features_extractor_class=TetrisCNN,
@@ -62,12 +84,13 @@ def make_training_env(n_envs, frame_stack):
     env = make_vec_env(TetrisEnv, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
     env = VecMonitor(env)
     env = VecFrameStack(env, n_stack=frame_stack)
-    return env
-
-def make_eval_env(frame_stack):
-    env = make_vec_env(TetrisEnv, n_envs=1)
-    env = VecMonitor(env)
-    env = VecFrameStack(env, n_stack=frame_stack)
+    env = VecNormalize(
+        env, 
+        norm_obs=False, 
+        norm_reward=True, 
+        clip_reward=10.0,
+        gamma=0.99
+    )
     return env
 
 def make_eval_env(frame_stack):
@@ -81,3 +104,34 @@ def make_infer_env(frame_stack):
     env = VecMonitor(env)
     env = VecFrameStack(env, n_stack=frame_stack)
     return env
+
+def make_learning_schedule(initial_value: float, schedule_type: str = "linear") -> Callable[[float], float]:
+    if schedule_type == "linear":
+        def func(progress_remaining: float) -> float:
+            return progress_remaining * initial_value
+        return func
+
+    elif schedule_type == "constant":
+        def func(progress_remaining: float) -> float:
+            return initial_value
+        return func
+
+    elif schedule_type == "exponential":
+        def func(progress_remaining: float) -> float:
+            return initial_value * (progress_remaining ** 2)
+        return func
+
+    elif schedule_type == "cosine":
+        def func(progress_remaining: float) -> float:
+            return 0.5 * initial_value * (1 + math.cos(math.pi * (1 - progress_remaining)))
+        return func
+
+    elif schedule_type == "step":
+        def func(progress_remaining: float) -> float:
+            if progress_remaining < 0.5:
+                return initial_value * 0.1
+            return initial_value
+        return func
+
+    else:
+        raise ValueError(f"Unknown schedule type: {schedule_type}")

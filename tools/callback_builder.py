@@ -1,6 +1,6 @@
 import os
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
-from .callbacks import ViewGameCallback, DebugCallback
+from .callbacks import ViewGameCallback, DebugCallback, SaveVerboseLogCallback
 
 def build_callbacks(args, cfg, env):
     callbacks = []
@@ -28,5 +28,10 @@ def build_callbacks(args, cfg, env):
     if args.debug:
         debug_callback = DebugCallback()
         callbacks.append(debug_callback)
+    if args.save_verbose_log:
+        save_verbose_log_callback = SaveVerboseLogCallback(
+            log_path=os.path.join(args.save_dir, "verbose_log.csv")
+        )
+        callbacks.append(save_verbose_log_callback)
 
     return callbacks

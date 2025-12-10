@@ -39,9 +39,9 @@ class TetrisEnv(gym.Env):
             self.client.move(-1)
         elif action == MOVE_RIGHT:
             self.client.move(1)
-        elif action == ROTATE_CW:
-            self.client.rotate(0, 1)
         elif action == ROTATE_CCW:
+            self.client.rotate(0, 1)
+        elif action == ROTATE_CW:
             self.client.rotate(1, 1)
         elif action == DROP:
             self.client.drop()
@@ -81,14 +81,14 @@ class TetrisEnv(gym.Env):
         self.client.close()
 
     def _calculate_reward(self, state, action):
-        _, cleared, holes, hight, bumpiness, pillar, y_pos, contact, _ = state
+        is_over, cleared, holes, hight, bumpiness, pillar, y_pos, contact, _ = state
 
         cleared_delta = cleared - self.prev_cleared
         holes_delta = holes - self.prev_hole
         height_delta = hight - self.prev_hight
 
         if self.reward_type == "train":
-            reward = self._base_train_reward(cleared_delta, holes_delta, height_delta, action)
+            reward = self._base_train_reward(cleared_delta, holes_delta, height_delta, contact, is_over, action)
         elif self.reward_type == "eval":
             reward = self._base_eval_reward(cleared_delta)
         else:
@@ -106,12 +106,15 @@ class TetrisEnv(gym.Env):
         self.prev_y_pos = y_pos
         self.prev_contact = contact
 
-    def _base_train_reward(self, cleared_delta, holes_delta, height_delta, action):
+    def _base_train_reward(self, cleared_delta, holes_delta, height_delta, contact, is_over, action):
         reward = 0
-        reward += 5 if action == 4 else 0
-        reward -= height_delta * 5 if height_delta > 0 else 0
-        reward -= holes_delta * 10 if holes_delta > 0 else 0
-        reward += cleared_delta * 1000 if cleared_delta > 0 else 0
+        reward += 2 if action == DROP else 0
+        reward -= height_delta * 0.5 if height_delta > 0 else 0
+        reward -= holes_delta * 0.5 if holes_delta > 0 else 0
+        reward += cleared_delta * 100 if cleared_delta > 0 else 0
+        reward -= 50 if is_over else 0
+        reward += 1 * (contact - 3) if contact > 3 and action == DROP else 0
+        reward -= 0.5 if contact < 3 else 0
 
         return reward
     

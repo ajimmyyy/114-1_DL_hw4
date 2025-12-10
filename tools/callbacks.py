@@ -60,3 +60,27 @@ class DebugCallback(BaseCallback):
         if self.num_timesteps % 1000 == 0:
             tqdm.write(f"t={self.num_timesteps} | last_reward={np.mean(self.locals.get('rewards'))}")
         return True
+    
+class SaveVerboseLogCallback(BaseCallback):
+    def __init__(self, log_path="verbose_log.txt", verbose=0):
+        super().__init__(verbose)
+        self.log_path = log_path
+        self.f = open(self.log_path, "w")
+
+    def _on_step(self):
+        return True
+
+    def _on_rollout_end(self):
+        try:
+            ep_rew_mean = self.logger.name_to_value.get("rollout/ep_rew_mean", None)
+            ep_len_mean = self.logger.name_to_value.get("rollout/ep_len_mean", None)
+
+            if ep_rew_mean is not None and ep_len_mean is not None:
+                with open(self.log_path, "a") as f:
+                    f.write(f"{self.num_timesteps},{ep_rew_mean},{ep_len_mean}\n")
+
+        except Exception as e:
+            print("[SaveVerboseLogCallback] Error:", e)
+
+    def _on_training_end(self):
+        print(f"Logs saved to {self.log_path}")
