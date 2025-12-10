@@ -3,7 +3,7 @@ from configs.utils.config_loader import load_config
 from models.factory import create_model, make_training_env, make_eval_env
 from tools.callback_builder import build_callbacks
 from tools.trainer import RLTrainer
-
+import logging
 
 def main(args):
     cfg = load_config(args.cfg)
@@ -31,4 +31,12 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
+
+    logging.basicConfig(
+        filename="train_log.txt",
+        filemode="w",
+        level=logging.INFO,
+        format="%(message)s",
+    )
+    
     main(args)

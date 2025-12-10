@@ -39,7 +39,7 @@ def create_model(cfg, env, log_dir="./tensorboard_logs", model_path=None):
     if use_custom_cnn:
         params["policy_kwargs"] = dict(
             features_extractor_class=TetrisCNN,
-            features_extractor_kwargs=dict(features_dim=features_dim)
+            features_extractor_kwargs=dict(features_dim=features_dim, frame_stack=cfg["env"]["frame_stack"])
         )
     
     if use_per:

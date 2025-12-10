@@ -1,8 +1,10 @@
 import cv2
 import socket
 import numpy as np
-
-PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+try:
+    from .globel_constant import IMG_HEIGHT, IMG_WIDTH, PNG_MAGIC
+except ImportError:
+    from globel_constant import IMG_HEIGHT, IMG_WIDTH, PNG_MAGIC
 
 class TetrisClient:
     def __init__(self, host="127.0.0.1", port=10612):
@@ -52,7 +54,7 @@ class TetrisClient:
         is_game_over = (self.recv_exact(1) == b'\x01')
         removed_lines = int.from_bytes(self.recv_exact(4), 'big')
         holes = int.from_bytes(self.recv_exact(4), 'big')
-        hight = int.from_bytes(self.recv_exact(4), 'big')
+        height = int.from_bytes(self.recv_exact(4), 'big')
         bumpiness = int.from_bytes(self.recv_exact(4), 'big')
         pillar = int.from_bytes(self.recv_exact(4), 'big')
         y_pos = int.from_bytes(self.recv_exact(4), 'big')
@@ -66,8 +68,9 @@ class TetrisClient:
         
         nparr = np.frombuffer(img_png, np.uint8)
         np_image = cv2.imdecode(nparr, -1)
+        np_image = cv2.resize(np_image, (IMG_WIDTH, IMG_HEIGHT), interpolation=cv2.INTER_AREA)
 
-        return is_game_over, removed_lines, holes, hight, bumpiness, pillar, y_pos, contact, np_image
+        return is_game_over, removed_lines, holes, height, bumpiness, pillar, y_pos, contact, np_image
 
     def start(self):
         self.send_cmd("start")

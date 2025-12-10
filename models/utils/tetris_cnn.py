@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch
 
 class TetrisCNN(BaseFeaturesExtractor):
-    def __init__(self, observation_space, features_dim=512):
+    def __init__(self, observation_space, frame_stack, features_dim=512):
         super().__init__(observation_space, features_dim)
 
         self.cnn = nn.Sequential(
-            nn.Conv2d(4, 32, kernel_size=5, stride=5, padding=0),
+            nn.Conv2d(frame_stack, 32, kernel_size=5, stride=5, padding=0),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -17,7 +17,7 @@ class TetrisCNN(BaseFeaturesExtractor):
         )
 
         with torch.no_grad():
-            sample = torch.zeros(1, 4, *observation_space.shape[1:])
+            sample = torch.as_tensor(observation_space.sample()[None]).float()
             n_flatten = self.cnn(sample).shape[1]
 
         self.linear = nn.Sequential(

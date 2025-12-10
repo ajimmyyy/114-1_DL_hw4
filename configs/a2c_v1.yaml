@@ -1,0 +1,36 @@
+algo: "A2C"
+
+env:
+  n_envs: 128           # A2C 非常依賴這個數量來穩定梯度
+  frame_stack: 10
+
+train:
+  total_timesteps: 10_000_000 # A2C 樣本效率比 PPO 差，通常需要更多步數
+  log_dir: "./tensor_logs"
+
+model:
+  policy: "CnnPolicy"
+  # use_tetris_cnn: true
+  features_dim: 512
+
+  # --- A2C 核心參數 ---
+  learning_rate: 0.0007       # A2C 經典默認值是 7e-4，比 PPO/DQN 稍高
+  n_steps: 20                 # 注意：這是 A2C 最重要的參數。
+                              # 每次更新的數據量 = n_envs * n_steps
+                              # 128 * 20 = 2560 transitions per update.
+                              # A2C 不像 PPO 存一大包，它傾向於「少量多餐」快速更新。
+  
+  gamma: 0.99                 # 折扣因子
+  gae_lambda: 0.95            # GAE 參數
+  
+  # --- 探索與優化器 ---
+  ent_coef: 0.01              # 熵係數，與 PPO 相同，防止過早收斂
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  
+  use_rms_prop: true          # A2C 傳統上使用 RMSprop 優化器 (而非 Adam)
+  rms_prop_eps: 0.00001       # RMSprop 的 epsilon 參數
+  normalize_advantage: false  # A2C 通常不標準化優勢函數 (PPO 則通常會)
+
+  verbose: 1
+  device: "cuda"

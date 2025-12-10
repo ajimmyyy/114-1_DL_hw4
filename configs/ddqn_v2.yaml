@@ -2,10 +2,10 @@ algo: "DDQN"
 
 env:
   n_envs: 128
-  frame_stack: 4
+  frame_stack: 10
 
 train:
-  total_timesteps: 1000_000_0
+  total_timesteps: 1000_000
   log_dir: "./tensor_logs"
 
 model:

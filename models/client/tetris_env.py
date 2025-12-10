@@ -4,6 +4,7 @@ from gymnasium import spaces
 import numpy as np
 from tqdm import tqdm
 from .tetris_client import TetrisClient
+from .globel_constant import IMG_HEIGHT, IMG_WIDTH, MOVE_LEFT, MOVE_RIGHT, ROTATE_CW, ROTATE_CCW, DROP
 
 class TetrisEnv(gym.Env):
     metadata = {"render_modes": ["rgb_array"]}
@@ -14,70 +15,46 @@ class TetrisEnv(gym.Env):
         self.client = TetrisClient(host, port)
 
         self.observation_space = spaces.Box(
-            low=0, high=255, shape=(1, 100, 50), dtype=np.uint8
+            low=0, high=255, shape=(IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8
         )
 
         self.action_space = spaces.Discrete(5)
-        self.total_global_steps = 0
         self.steps = 0
         self.prev_cleared = 0
         self.prev_hole = 0
         self.prev_hight = 0
         self.reward_type = reward_type
 
-    def _process_obs(self, obs):
-        gray = np.dot(obs[...,:3], [0.2989, 0.5870, 0.1140])
-        gray = cv2.resize(gray, (50, 100), interpolation=cv2.INTER_AREA)
-        gray = gray.astype(np.uint8)
-        gray = np.expand_dims(gray, axis=0)
-        return gray
-
     def reset(self, seed=None, options=None):
         self.client.start()
-        is_over, cleared, holes, hight, bumpiness, pillar, y_pos, contact, obs = self.client.get_state()
-        self.prev_cleared = cleared
-        self.prev_hole = holes
-        self.prev_hight = hight
-        self.prev_bumpiness = bumpiness
-        self.prev_pillar = pillar
-        self.prev_y_pos = y_pos
-        self.prev_contact = contact
+        state = self.client.get_state()
+        _, _, _, _, _, _, _, _, obs = state
+        self._update_state(state)
         self.steps = 0
 
-        processed_obs = self._process_obs(obs)
-        return processed_obs, {}
+        return obs, {}
 
     def step(self, action):
-        if action == 0:
+        if action == MOVE_LEFT:
             self.client.move(-1)
-        elif action == 1:
+        elif action == MOVE_RIGHT:
             self.client.move(1)
-        elif action == 2:
-            self.client.move(0)
-        elif action == 3:
+        elif action == ROTATE_CW:
             self.client.rotate(0, 1)
-        elif action == 4:
+        elif action == ROTATE_CCW:
             self.client.rotate(1, 1)
+        elif action == DROP:
+            self.client.drop()
         
+        state = self.client.get_state()
+        is_over, cleared, holes, hight, bumpiness, pillar, y_pos, contact, obs = state
+
+        reward = self._calculate_reward(state, action)
+        self._update_state(state)
+
         self.steps += 1
-        is_over, cleared, holes, hight, bumpiness, pillar, y_pos, contact, obs = self.client.get_state()
-
-        cleared_delta = cleared - self.prev_cleared
-        holes_delta = holes - self.prev_hole
-        bumpiness_delta = bumpiness - self.prev_bumpiness
-
-        if self.reward_type == "train":
-            reward = self._base_train_reward_v2(cleared_delta, holes_delta, hight, bumpiness_delta, pillar, y_pos, contact, is_over, action)
-        elif self.reward_type == "eval":
-            reward = self._base_eval_reward(cleared_delta)
-
-        self.prev_cleared = cleared
-        self.prev_hole = holes
-        self.prev_hight = hight
         terminated = is_over
         truncated = False
-
-        processed_obs = self._process_obs(obs)
 
         info = {
             "lines_cleared": cleared,
@@ -94,7 +71,7 @@ class TetrisEnv(gym.Env):
         if truncated:
             info["TimeLimit.truncated"] = True
 
-        return processed_obs, reward, terminated, truncated, info
+        return obs, reward, terminated, truncated, info
 
     def render(self):
         _, _, _, _, _, _, _, _, obs = self.client.get_state()
@@ -103,25 +80,38 @@ class TetrisEnv(gym.Env):
     def close(self):
         self.client.close()
 
-    def _base_train_reward(self, cleared_delta, holes_delta, height_delta, is_over):
-        reward = (cleared_delta * 10) + 0.01
-        reward -= (holes_delta * 0.1)
-        reward -= 10 if is_over else 0
+    def _calculate_reward(self, state, action):
+        _, cleared, holes, hight, bumpiness, pillar, y_pos, contact, _ = state
+
+        cleared_delta = cleared - self.prev_cleared
+        holes_delta = holes - self.prev_hole
+        height_delta = hight - self.prev_hight
+
+        if self.reward_type == "train":
+            reward = self._base_train_reward(cleared_delta, holes_delta, height_delta, action)
+        elif self.reward_type == "eval":
+            reward = self._base_eval_reward(cleared_delta)
+        else:
+            raise ValueError("Invalid reward type")
+
         return reward
-    
-    def _base_train_reward_v2(self, cleared_delta, holes_delta, height, bumpiness_delta, pillar, y_pos, contact, is_over, action):
+
+    def _update_state(self, state):
+        _, cleared, holes, hight, bumpiness, pillar, y_pos, contact, _ = state
+        self.prev_cleared = cleared
+        self.prev_hole = holes
+        self.prev_hight = hight
+        self.prev_bumpiness = bumpiness
+        self.prev_pillar = pillar
+        self.prev_y_pos = y_pos
+        self.prev_contact = contact
+
+    def _base_train_reward(self, cleared_delta, holes_delta, height_delta, action):
         reward = 0
-        reward -= 50 if is_over else 0
-        reward += 0.01
-        reward += (2 ** cleared_delta) * 8 if cleared_delta !=0 else 0
-        reward += 100 if cleared_delta == 4 else 0
-        reward += 0.002 if action == 2 else 0
-
-        reward += 0.03 * (contact - 3) if contact > 3 else 0
-        reward -= 0.05 * (3 - contact) if contact < 3 else 0
-        reward -= 0.1 if bumpiness_delta > 4 else 0
-
-        reward += -0.1 if y_pos > (height / 10 + 2) else 0.01
+        reward += 5 if action == 4 else 0
+        reward -= height_delta * 5 if height_delta > 0 else 0
+        reward -= holes_delta * 10 if holes_delta > 0 else 0
+        reward += cleared_delta * 1000 if cleared_delta > 0 else 0
 
         return reward
     

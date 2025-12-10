@@ -5,8 +5,9 @@ from stable_baselines3.common.callbacks import BaseCallback
 from tqdm import tqdm
 
 class ViewGameCallback(BaseCallback):
-    def __init__(self, verbose=0):
+    def __init__(self, frame_num=4, verbose=0):
         super().__init__(verbose)
+        self.frame_num = frame_num
 
     def _on_step(self) -> bool:
         try:
@@ -14,25 +15,30 @@ class ViewGameCallback(BaseCallback):
 
             if hasattr(self.training_env, "unnormalize_obs"):
                 obs = self.training_env.unnormalize_obs(obs)
-                
-            frame = obs[0, -1, :, :]
+
+            frame_stack = obs[0]
+
+            start = 3 * (self.frame_num - 1)
+            end   = 3 * self.frame_num
+            frame = frame_stack[start:end]
 
             if isinstance(frame, torch.Tensor):
                 frame = frame.detach().cpu().numpy()
+
+            frame = np.transpose(frame, (1, 2, 0))
 
             if frame.max() <= 1.0:
                 frame = (frame * 255).astype(np.uint8)
             else:
                 frame = frame.astype(np.uint8)
-                
-            img = frame
+
             img_display = cv2.resize(
-                img, (0, 0),
+                frame, (0, 0),
                 fx=4, fy=4,
                 interpolation=cv2.INTER_NEAREST
             )
 
-            cv2.imshow('Training Preview (Env 0)', img_display)
+            cv2.imshow("Training Preview (RGB)", img_display)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 return False
