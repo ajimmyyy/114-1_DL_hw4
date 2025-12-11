@@ -22,7 +22,7 @@ class TetrisEnv(gym.Env):
         self.steps = 0
         self.prev_cleared = 0
         self.prev_hole = 0
-        self.prev_hight = 0
+        self.prev_height = 0
         self.reward_type = reward_type
 
     def reset(self, seed=None, options=None):
@@ -47,9 +47,9 @@ class TetrisEnv(gym.Env):
             self.client.drop()
         
         state = self.client.get_state()
-        is_over, cleared, holes, hight, bumpiness, pillar, y_pos, contact, obs = state
+        is_over, cleared, holes, height, bumpiness, pillar, y_pos, contact, obs = state
 
-        reward = self._calculate_reward(state, action)
+        reward = self._calculate_reward(state, action, steps = self.steps)
         self._update_state(state)
 
         self.steps += 1
@@ -61,7 +61,7 @@ class TetrisEnv(gym.Env):
             "reward": reward,
             "steps": self.steps,
             "holes": holes,
-            "height": hight,
+            "height": height,
             "bumpiness": bumpiness,
             "pillar": pillar,
             "y_pos": y_pos,
@@ -80,15 +80,16 @@ class TetrisEnv(gym.Env):
     def close(self):
         self.client.close()
 
-    def _calculate_reward(self, state, action):
-        is_over, cleared, holes, hight, bumpiness, pillar, y_pos, contact, _ = state
+    def _calculate_reward(self, state, action, steps):
+        is_over, cleared, holes, height, bumpiness, pillar, y_pos, contact, _ = state
 
         cleared_delta = cleared - self.prev_cleared
         holes_delta = holes - self.prev_hole
-        height_delta = hight - self.prev_hight
+        height_delta = height - self.prev_height
+        bumpiness_delta = bumpiness - self.prev_bumpiness
 
         if self.reward_type == "train":
-            reward = self._base_train_reward(cleared_delta, holes_delta, height_delta, contact, is_over, action)
+            reward = self._base_train_reward(cleared_delta, holes_delta, height, bumpiness_delta, y_pos, contact, is_over, action, steps)
         elif self.reward_type == "eval":
             reward = self._base_eval_reward(cleared_delta)
         else:
@@ -97,24 +98,28 @@ class TetrisEnv(gym.Env):
         return reward
 
     def _update_state(self, state):
-        _, cleared, holes, hight, bumpiness, pillar, y_pos, contact, _ = state
+        _, cleared, holes, height, bumpiness, pillar, y_pos, contact, _ = state
         self.prev_cleared = cleared
         self.prev_hole = holes
-        self.prev_hight = hight
+        self.prev_height = height
         self.prev_bumpiness = bumpiness
         self.prev_pillar = pillar
         self.prev_y_pos = y_pos
         self.prev_contact = contact
 
-    def _base_train_reward(self, cleared_delta, holes_delta, height_delta, contact, is_over, action):
+    def _base_train_reward(self, cleared_delta, holes_delta, height, bumpiness_delta, y_pos, contact, is_over, action, steps):
         reward = 0
+        reward += 0.1
         reward += 2 if action == DROP else 0
-        reward -= height_delta * 0.5 if height_delta > 0 else 0
+        reward -= y_pos * 0.5 if y_pos > (height / 10 + 1) else 0
         reward -= holes_delta * 0.5 if holes_delta > 0 else 0
+        reward -= holes_delta * 0.5 if holes_delta > 0 and steps > 200 else 0
         reward += cleared_delta * 100 if cleared_delta > 0 else 0
         reward -= 50 if is_over else 0
+        reward -= 200 if steps <= 50 and is_over else 0
+        reward -= 50 if steps <= 100 and is_over else 0
         reward += 1 * (contact - 3) if contact > 3 and action == DROP else 0
-        reward -= 0.5 if contact < 3 else 0
+        reward -= 1 if contact < 3 else 0
 
         return reward
     
