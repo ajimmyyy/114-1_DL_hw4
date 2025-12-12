@@ -89,13 +89,13 @@ def main(args):
                 print(f"Step {step+1}/{args.test_steps} | Current Ep Reward: {current_ep_reward:.2f}")
 
             if done:
-                print(f"Episode {ep_id} Finished. Reward: {current_ep_reward:.2f}, Lines: {info[0].get('removed_lines', 0)}")
+                print(f"Episode {ep_id} Finished. Reward: {current_ep_reward:.2f}, Lines: {info[0].get('lines_cleared', 0)}")
                 
                 if current_ep_reward > max_reward:
                     max_reward = current_ep_reward
                     best_ep_id = ep_id
-                    max_rm_lines = info[0].get('removed_lines', 0)
-                    max_lifetime = info[0].get('lifetime', 0)
+                    max_rm_lines = info[0].get('lines_cleared', 0)
+                    max_lifetime = info[0].get('steps', 0)
                     print(f" -> New Best Episode! (ID: {best_ep_id})")
 
                 obs = env.reset()
@@ -141,8 +141,9 @@ def main(args):
     csv_path = 'submission.csv'
     print(f"Saving results to {csv_path}...")
     with open(csv_path, 'w') as fs:
-        fs.write('Id,Predicted\n')
-        fs.write(f'game_score,{max_reward}\n')
+        fs.write('id,removed_lines,played_steps\n')
+        fs.write(f'0,{max_rm_lines},{max_lifetime}\n')
+        fs.write(f'1,{max_rm_lines},{max_lifetime}\n')
 
 if __name__ == "__main__":
     args = parse_args()

@@ -23,6 +23,7 @@ class TetrisEnv(gym.Env):
         self.prev_cleared = 0
         self.prev_hole = 0
         self.prev_height = 0
+        self.prev_action = None
         self.reward_type = reward_type
 
     def reset(self, seed=None, options=None):
@@ -45,12 +46,15 @@ class TetrisEnv(gym.Env):
             self.client.rotate(1, 1)
         elif action == DROP:
             self.client.drop()
+        else:
+            self.client.move(0)
         
         state = self.client.get_state()
         is_over, cleared, holes, height, bumpiness, pillar, y_pos, contact, obs = state
 
         reward = self._calculate_reward(state, action, steps = self.steps)
         self._update_state(state)
+        self.prev_action = action
 
         self.steps += 1
         terminated = is_over
@@ -89,7 +93,7 @@ class TetrisEnv(gym.Env):
         bumpiness_delta = bumpiness - self.prev_bumpiness
 
         if self.reward_type == "train":
-            reward = self._base_train_reward(cleared_delta, holes_delta, height, bumpiness_delta, y_pos, contact, is_over, action, steps)
+            reward = self._base_train_reward(cleared_delta, holes, holes_delta, height, bumpiness_delta, y_pos, contact, is_over, action, steps)
         elif self.reward_type == "eval":
             reward = self._base_eval_reward(cleared_delta)
         else:
@@ -107,19 +111,19 @@ class TetrisEnv(gym.Env):
         self.prev_y_pos = y_pos
         self.prev_contact = contact
 
-    def _base_train_reward(self, cleared_delta, holes_delta, height, bumpiness_delta, y_pos, contact, is_over, action, steps):
+    def _base_train_reward(self, cleared_delta, holes, holes_delta, height, bumpiness_delta, y_pos, contact, is_over, action, steps):
         reward = 0
-        reward += 0.1
+        reward += 0.1 * (1.2 ** ((height - holes) // 10))
         reward += 2 if action == DROP else 0
         reward -= y_pos * 0.5 if y_pos > (height / 10 + 1) else 0
-        reward -= holes_delta * 0.5 if holes_delta > 0 else 0
-        reward -= holes_delta * 0.5 if holes_delta > 0 and steps > 200 else 0
-        reward += cleared_delta * 100 if cleared_delta > 0 else 0
+        reward -= holes_delta * 0.6 if holes_delta > 0 else 0
+        reward += cleared_delta * 100 * max(1, (steps // 200)) if cleared_delta > 0 else 0
         reward -= 50 if is_over else 0
         reward -= 200 if steps <= 50 and is_over else 0
         reward -= 50 if steps <= 100 and is_over else 0
-        reward += 1 * (contact - 3) if contact > 3 and action == DROP else 0
-        reward -= 1 if contact < 3 else 0
+        reward -= 2 if contact < 3 else 0
+        reward -= 2 if contact < 2 else 0
+        reward -= bumpiness_delta * 0.1 if bumpiness_delta > 3 else 0
 
         return reward
     

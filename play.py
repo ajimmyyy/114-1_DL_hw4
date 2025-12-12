@@ -6,6 +6,7 @@ import gzip
 from models.client.tetris_env import TetrisEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack, VecTransposeImage, DummyVecEnv
+from models.client.globel_constant import MOVE_LEFT, MOVE_RIGHT, ROTATE_CW, ROTATE_CCW, DROP
 
 def record_demonstration(output_file="tetris_demo_stacked.pkl.gz", episodes=5):
     env = make_vec_env(TetrisEnv, n_envs=1, vec_env_cls=DummyVecEnv)
@@ -17,9 +18,9 @@ def record_demonstration(output_file="tetris_demo_stacked.pkl.gz", episodes=5):
     print("操作: A(左) D(右) W/E(旋轉) S(下落)")
     
     KEY_MAPPING = {
-        ord('a'): 0, ord('d'): 1, 
-        ord('q'): 2, ord('e'): 3, 
-        ord('s'): 4
+        ord('a'): MOVE_LEFT, ord('d'): MOVE_RIGHT, 
+        ord('q'): ROTATE_CW, ord('e'): ROTATE_CCW, 
+        ord('s'): DROP
     }
     
     for ep in range(episodes):
@@ -28,7 +29,7 @@ def record_demonstration(output_file="tetris_demo_stacked.pkl.gz", episodes=5):
         score = 0
         
         while not done:
-            display_img = obs[0, 3, :, :]
+            display_img = obs[0, :, :, 3]
             
             if display_img.max() <= 1.0: display_img *= 255
             display_img = display_img.astype(np.uint8)
@@ -36,7 +37,7 @@ def record_demonstration(output_file="tetris_demo_stacked.pkl.gz", episodes=5):
             cv2.imshow("Recorder", display_img)
             
             key = cv2.waitKey(500) & 0xFF
-            action = [2]
+            action = [-1]
             
             if key in KEY_MAPPING:
                 action = [KEY_MAPPING[key]]
